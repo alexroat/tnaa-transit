@@ -2,7 +2,7 @@
 
 ## In breve
 
-L'app è fatta solo di file statici. Una volta al giorno uno script trasforma i GTFS in un unico file compatto; il browser lo combina con i ritardi live di BusOne e calcola da solo dove si trova ogni mezzo.
+L'app è fatta solo di file statici. Quando si pubblica, uno script trasforma i GTFS in un unico file compatto; il browser lo combina con i ritardi live di BusOne e calcola da solo dove si trova ogni mezzo.
 
 ```mermaid
 flowchart LR
@@ -95,7 +95,7 @@ Per pubblicare una nuova versione dell'app bisogna incrementare `VERSION` in `sw
 
 ## Pubblicazione
 
-`.github/workflows/pages.yml` gira a ogni push su `main` e ogni notte. Scarica i GTFS, genera `net.json` e `version.json`, che non sono nel repo, e pubblica `app/` su GitHub Pages. Se il build fallisce resta online l'ultima versione buona. La versione degli orari dipende solo dal contenuto, quindi l'app riscarica gli orari solo quando cambiano davvero.
+Il sito sta su GitHub Pages, senza CI. `npm run publish`, lanciato a mano, rigenera i dati, esegue i test e sostituisce il branch `gh-pages` con `app/` e i dati generati. `main` contiene solo i sorgenti. La versione degli orari dipende solo dal contenuto, quindi l'app riscarica gli orari solo quando cambiano davvero.
 
 ## Prossimi passi
 

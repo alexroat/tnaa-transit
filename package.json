@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "data": "python3 -I scripts/build_data.py",
+    "publish": "sh scripts/publish.sh",
     "serve": "python3 -m http.server 8650 --directory app",
     "test": "node --test tests/",
     "check:live": "node scripts/check_live.mjs"

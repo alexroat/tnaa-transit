@@ -20,6 +20,7 @@ Non servono dipendenze: bastano Python 3 e Node. I dati non sono nel repo: la pr
 |---|---|
 | `npm run data` | Riscarica i GTFS e rigenera `app/data/net.json` |
 | `npm test` | Esegue i test della logica |
+| `npm run publish` | Rigenera i dati e pubblica il sito su GitHub Pages |
 | `npm run check:live` | Controlla sui feed veri aggancio agli orari e posizioni; ha senso col servizio attivo |
 
 ## Funzioni

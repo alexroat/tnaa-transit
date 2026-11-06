@@ -7,8 +7,6 @@ description: Rigenera i dati offline di TNAA Transit (app/data/net.json e versio
 
 L'app legge solo `app/data/net.json`. Lo genera `scripts/build_data.py` da due fonti automatiche (GTFS via BusOne) e dai file manuali `data/extra/*.json`. Il resto di questa guida serve per i file manuali, perché nessun programma può scriverli: gli orari esistono solo in PDF.
 
-Su GitHub il workflow `pages.yml` rigenera e pubblica i dati ogni notte. Le fasi 2-5 restano manuali: servono ogni volta che cambiano le corse di `data/extra/`. Fatte quelle, basta fare commit e push: il workflow fa il resto.
-
 ## 1. Rigenera e guarda le date
 
 ```sh
@@ -71,7 +69,8 @@ Apri infine l'app con `npm run serve` su `http://localhost:8650/` e cerca una co
 
 - Aggiorna la tabella di confronto in `docs/dati-e-limiti.md` con date ed esiti veri, comprese le differenze.
 - Non serve toccare `sw.js`: `version.json` fa scaricare gli orari nuovi. Incrementa `VERSION` solo se cambia il codice dell'app.
-- Fai commit e push solo se l'utente lo chiede. Un file `data/extra` scaduto viene ignorato dal build: non blocca la pubblicazione.
+- Il sito non si aggiorna da solo: non c'è CI. Con l'accordo dell'utente pubblica con `npm run publish`, che rigenera i dati e sostituisce il branch `gh-pages`.
+- Fai commit e push di `main` solo se l'utente lo chiede. Un file `data/extra` scaduto viene ignorato dal build: non blocca la pubblicazione.
 
 ## Comando utile
 
