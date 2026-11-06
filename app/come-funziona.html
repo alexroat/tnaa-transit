@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Come funziona · TN Monitor</title>
+  <meta name="theme-color" content="#1f5f3f">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <a href="./">← Torna alla mappa</a>
+  <h1>Come funziona</h1>
+  <p class="lead"><strong>I mezzi sulla mappa sono una stima, non una posizione GPS.</strong> Mostrano dove dovrebbe trovarsi un bus o un treno in base all'orario e all'ultimo ritardo noto.</p>
+  <p>Trentino Trasporti e Trenitalia non pubblicano le coordinate dei mezzi, quindi l'app non può sapere dove sia davvero un veicolo. Può però calcolarlo con buona approssimazione.</p>
+
+  <h2>Come viene calcolata la posizione</h2>
+  <p>L'app combina tre dati: l'orario della corsa, il percorso sulla mappa e il ritardo attuale.</p>
+  <p class="note">Un bus parte da A alle 8:10, arriva a B alle 8:20 e ha 4 minuti di ritardo. Alle 8:19 si comporta come un bus in orario alle 8:15, quindi viene disegnato a metà strada fra A e B.</p>
+  <p>La posizione si ricalcola ogni secondo e i ritardi vengono aggiornati ogni 30 secondi.</p>
+
+  <h2>Quanto ci si può fidare</h2>
+  <table>
+    <tr><th></th><th>Treni Trenitalia</th><th>Bus e Trento-Malé</th></tr>
+    <tr><td>Ritardo</td><td>Comunicato da Trenitalia</td><td>Calcolato dai passaggi rilevati; per le fermate successive è una previsione</td></tr>
+    <tr><td>Posizione</td><td>Stimata</td><td>Stimata</td></tr>
+  </table>
+  <p>La stima può sbagliare soprattutto:</p>
+  <ul>
+    <li><strong>fra due fermate lontane</strong>, perché l'app ipotizza una velocità costante e non vede code, semafori o soste impreviste;</li>
+    <li><strong>sulle previsioni dei bus</strong>, per cui la fonte stessa dichiara un'incertezza di 10 minuti;</li>
+    <li><strong>sui mezzi "solo orario"</strong>, per cui non arrivano dati: vengono mostrati dove dovrebbero essere e potrebbero trovarsi altrove.</li>
+  </ul>
+  <p>Per non perdere una corsa, arriva in fermata con qualche minuto di anticipo.</p>
+
+  <h2>Cosa significano i colori</h2>
+  <table>
+    <tr><td><span class="dot" style="background:var(--ok)"></span>Verde</td><td>In orario, meno di 2 minuti di ritardo</td></tr>
+    <tr><td><span class="dot" style="background:var(--warn)"></span>Giallo</td><td>Da 2 a 5 minuti di ritardo</td></tr>
+    <tr><td><span class="dot" style="background:var(--late)"></span>Rosso</td><td>Oltre 5 minuti di ritardo</td></tr>
+    <tr><td><span class="dot" style="background:var(--early)"></span>Blu</td><td>In anticipo di oltre 1 minuto</td></tr>
+    <tr><td><span class="dot" style="background:#fff;border:2px solid var(--none)"></span>Vuoto</td><td>Solo orario: nessun dato in tempo reale per questa corsa</td></tr>
+  </table>
+
+  <h2>Senza connessione</h2>
+  <p>Si possono ancora consultare orari e fermate, e la mappa delle zone già viste. I mezzi diventano tutti "solo orario" e in alto compare un avviso con la data degli orari.</p>
+
+  <h2>Da dove vengono i dati</h2>
+  <p>Orari e ritardi arrivano da <a href="https://busone.app">BusOne</a>, che elabora i dati di Trentino Trasporti e Trenitalia. La mappa usa OpenStreetMap tramite OpenFreeMap e il modello del terreno Mapzen.</p>
+  <p>TN Monitor è un progetto indipendente: non è un servizio di Trentino Trasporti o di Trenitalia. Per informazioni ufficiali consulta i canali degli operatori.</p>
+</main>
+</body>
+</html>

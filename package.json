@@ -1,0 +1,12 @@
+{
+  "name": "tnttmonitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "python3 -I scripts/build_data.py",
+    "serve": "python3 -m http.server 8650 --directory app",
+    "test": "node --test tests/",
+    "check:live": "node scripts/check_live.mjs"
+  }
+}
