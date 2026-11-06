@@ -1,11 +1,11 @@
 // Service worker: app e orari sempre disponibili, tile salvati man mano, dati live mai in cache.
-const VERSION = 'v4';
+const VERSION = 'v7';
 const SHELL = `tnaa-shell-${VERSION}`;
 const TILES = `tnaa-tiles-${VERSION}`;
 const LIVE = 'tnaa-live'; // ultimi ritardi salvati dalla pagina, con la loro data
 const MAX_TILES = 4000;
 const SHELL_FILES = [
-  './', 'index.html', 'come-funziona.html', 'style.css', 'manifest.webmanifest', 'js/main.js', 'js/schedule.js', 'js/rt.js', 'js/planner.js', 'data/net.json', 'data/version.json',
+  './', 'index.html', 'come-funziona.html', 'style.css', 'manifest.webmanifest', 'js/main.js', 'js/schedule.js', 'js/rt.js', 'js/planner.js', 'js/icons.js', 'data/net.json', 'data/version.json',
   'vendor/maplibre/maplibre-gl.mjs', 'vendor/maplibre/maplibre-gl-shared.mjs', 'vendor/maplibre/maplibre-gl-worker.mjs',
   'vendor/maplibre/maplibre-gl.css', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];

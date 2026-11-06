@@ -115,3 +115,25 @@ test('pianificatore: rete minima con un cambio e un tratto a piedi', async () =>
   assert.equal(out[0].arr, 30300); // la t2 e troppo vicina: 120 s di cambio piu 100 m a piedi
   assert.equal(out[0].legs.filter((l) => l.walk).length, 1);
 });
+
+test('linea: tratto fra due fermate e varianti per direzione', () => {
+  const raw = {
+    stops: [['a', 'A', 46, 11, 0], ['b', 'B', 46, 11.1, 0], ['c', 'C', 46, 11.2, 0], ['x', 'X', 46.01, 11.1, 0]],
+    routes: [['r', '1', 'Uno', '', 0, 'tt']],
+    services: [[127, '20260101', '20261231', [], []]],
+    shapes: [[11, 46, 11.1, 46, 11.2, 46], [11.2, 46, 11, 46]],
+    patterns: [[0, [0, 1, 2], [0, 7700, 15400], [1, 2, 3]], [0, [0, 3, 2], [0, 7700, 15400], [1, 2, 3]], [0, [0, 2], [0, 15400], [1, 2]], [1, [2, 0], [0, 15400], [1, 2]]],
+    offsets: [[0, 0, 300, 300, 600, 600], [0, 0, 600, 600]],
+    trips: [['t1', 0, 0, 'C', 0, 28800, 0, ''], ['t2', 0, 0, 'C', 0, 32400, 0, ''], ['t3', 0, 0, 'C', 1, 36000, 0, ''], ['t4', 0, 0, 'C', 2, 39600, 1, ''], ['t5', 0, 0, 'A', 3, 43200, 1, '']],
+    generatedAt: '',
+  };
+  const net = new Network(raw);
+  const part = net.path(0, 1, 2);
+  assert.ok(Math.abs(part[0][0] - 11.1) < 0.01);
+  assert.ok(Math.abs(part[part.length - 1][0] - 11.2) < 0.01);
+  const dirs = net.lineVariants(net.routes[0], '20261106');
+  assert.equal(dirs.length, 2);
+  assert.equal(dirs[0].label, 'Verso C');
+  assert.deepEqual(dirs[0].variants.map((v) => v.note), ['via B', 'via X', 'Senza deviazioni']);
+  assert.equal(dirs[0].variants[0].today.length, 2);
+});

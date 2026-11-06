@@ -69,6 +69,10 @@ L'app lo segnala negli ultimi 14 giorni e nel pianificatore quando si sceglie un
 
 Non sono state confrontate la B401 ritorno, le altre linee, tutte le fermate intermedie.
 
+## Ritardo di corsa e previsioni per fermata
+
+Il 6 novembre alle 11:30, su 90 corse bus in viaggio con dati live, 9 avevano previsioni sulle prossime fermate distanti oltre 5 minuti dal ritardo di corsa. Tipicamente partono alte e scendono verso quel valore. Il dato arriva così dalla fonte. La posizione usa il ritardo di corsa e la scheda del mezzo segnala la discordanza.
+
 ## Non ancora verificato
 
 - **Copertura live nell'arco della giornata:** al momento della prova circa un terzo dei mezzi era senza dati live, compresi molti bus della Valsugana.

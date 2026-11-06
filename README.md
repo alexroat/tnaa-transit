@@ -28,7 +28,10 @@ Non servono dipendenze: bastano Python 3 e Node. I dati non sono nel repo: la pr
 - Mappa 3D con terreno, bus, Trento-Malé, Valsugana e Brennero
 - Colore del mezzo in base al ritardo; i mezzi senza dati live sono vuoti ("solo orario")
 - Partenze per fermata o stazione, con ritardo e orario stimato
-- Dettaglio corsa: tutte le fermate, percorso sulla mappa, prossima fermata
+- Scheda del mezzo: corsa, prossime fermate, ritardi e percorso
+- Scheda della linea: direzioni, varianti, partenze e fermate
+- Selezione pulita: sulla mappa resta solo il tratto scelto, con icone bus e treno
+- Su telefono la barra si apre e si chiude
 - Ricerca di fermate e linee, filtri bus/treni/solo live
 - Pianificatore di viaggio con bus e treni, anche senza rete
 - Pagina "Come funziona" che spiega la stima al pubblico

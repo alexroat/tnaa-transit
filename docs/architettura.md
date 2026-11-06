@@ -74,6 +74,12 @@ Le corse dopo mezzanotte sono gestite controllando anche il giorno di servizio p
 
 Il calcolo usa gli orari programmati, cambio minimo 2 minuti e fino a 300 metri a piedi in linea d'aria. Non considera le corse iniziate il giorno prima. I ritardi attuali compaiono accanto a ogni tratta ma non cambiano il risultato.
 
+## Selezione e schede
+
+Una sola funzione, `setFocus`, gestisce tutto ciò che viene selezionato: viaggio, corsa o variante. Disegna il tratto richiesto, con `Network.path` per tagliarlo fra salita e discesa, nasconde il resto della rete e lascia sulla mappa solo i mezzi interessati.
+
+La scheda chiudibile ha due forme: mezzo e linea. La scheda linea raggruppa le corse per direzione e per sequenza di fermate con `Network.lineVariants`. Ogni variante viene descritta dalle fermate che hanno in poche, per esempio "via Masetti". Chiudendo una scheda torna la selezione precedente.
+
 ## Corse manuali
 
 Le corse che mancano dai GTFS stanno in `data/extra/*.json` e il build le fonde in `net.json` con il feed `extra`, che non ha dati live. Scadono da sole a `validTo`. La procedura è nella skill `aggiorna-dati`.

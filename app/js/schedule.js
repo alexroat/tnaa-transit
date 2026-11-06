@@ -26,6 +26,9 @@ export function serviceRuns(svc, ymd) {
   return ymd >= start && ymd <= end && (mask & weekdayBit(ymd)) !== 0;
 }
 
+/** Le corse di una stessa linea: i treni seguono il route_id, i bus nome e numero. */
+export const lineKey = (r) => (r.rail ? `r${r.i}` : `${r.short}|${r.long}`);
+
 export class Network {
   constructor(raw) {
     this.stops = raw.stops.map(([id, name, lat, lon, rail], i) => ({ i, id, name, lat, lon, rail: !!rail }));
@@ -62,6 +65,64 @@ export class Network {
   times(trip, pos) {
     const o = this.offsets[trip.offsets];
     return { arr: trip.start + o[pos * 2], dep: trip.start + o[pos * 2 + 1] };
+  }
+
+  /** Tracciato del solo tratto fra due fermate del pattern. */
+  path(pattern, from = 0, to = this.patterns[pattern].stops.length - 1) {
+    const pat = this.patterns[pattern];
+    const shape = this.shapes[pat.shape];
+    const a = pat.dist[from];
+    const b = pat.dist[to];
+    const ends = (d) => { const p = pointAt(shape, d); return [p.lon, p.lat]; };
+    return [ends(a), ...shape.coords.filter((_, i) => shape.cum[i] > a && shape.cum[i] < b), ends(b)];
+  }
+
+  /**
+   * Varianti di una linea, divise per direzione e ordinate per corse del giorno.
+   * Ogni variante porta una nota con le fermate che la distinguono dalle altre.
+   */
+  lineVariants(route, day) {
+    const key = lineKey(route);
+    const on = new Set(this.tripsOnDay(day).map((t) => t.i));
+    const groups = new Map();
+    for (const t of this.trips) {
+      if (lineKey(this.routes[t.route]) !== key) continue;
+      const stops = this.patterns[t.pattern].stops;
+      const k = stops.join(',');
+      if (!groups.has(k)) groups.set(k, { pattern: t.pattern, stops, trips: [], today: [] });
+      const g = groups.get(k);
+      g.trips.push(t);
+      if (on.has(t.i)) g.today.push(t);
+    }
+    const list = [...groups.values()].sort((a, b) => b.today.length - a.today.length || b.trips.length - a.trips.length);
+    for (const g of list) g.today.sort((a, b) => a.start - b.start);
+    const way = (g) => {
+      const a = this.stops[g.stops[0]];
+      const b = this.stops[g.stops[g.stops.length - 1]];
+      return [b.lon - a.lon, b.lat - a.lat];
+    };
+    const [rx, ry] = list.length ? way(list[0]) : [0, 0];
+    const dirs = [[], []];
+    for (const g of list) {
+      const [x, y] = way(g);
+      dirs[x * rx + y * ry >= 0 ? 0 : 1].push(g);
+    }
+    return dirs.filter((d) => d.length).map((variants) => {
+      const base = variants[0];
+      const seen = new Map();
+      for (const g of variants) for (const x of new Set(g.stops)) seen.set(x, (seen.get(x) || 0) + 1);
+      const rare = Math.max(1, Math.floor(variants.length / 3));
+      for (const g of variants) {
+        // Una variante si riconosce dalle fermate che hanno in poche: "via Masetti", "via Caldonazzo".
+        const own = g.stops.slice(1, -1).filter((x) => seen.get(x) <= rare);
+        const picked = [...new Set(own)].sort((x, y) => seen.get(x) - seen.get(y)).slice(0, 2);
+        const names = g.stops.filter((x, i) => picked.includes(x) && g.stops.indexOf(x) === i).map((x) => this.stops[x].name);
+        if (variants.length === 1) g.note = 'Percorso unico';
+        else if (names.length) g.note = `via ${names.join(', ')}`;
+        else g.note = g === base ? 'Percorso più frequente' : 'Senza deviazioni';
+      }
+      return { label: `Verso ${this.stops[base.stops[base.stops.length - 1]].name}`, variants };
+    });
   }
 
   endTime(trip) {
