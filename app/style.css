@@ -47,6 +47,21 @@ h2 { font-size: 16px; margin: 4px 0 2px; }
 .d { font-size: 12px; font-weight: 600; white-space: nowrap; }
 .d.ok { color: var(--ok); } .d.warn { color: #a97600; } .d.late { color: var(--late); } .d.early { color: var(--early); } .d.none { color: var(--muted); font-weight: 400; }
 .empty { color: var(--muted); padding: 12px 0; }
+#panel header { position: relative; }
+#btn-refresh { position: absolute; top: 0; right: 0; border: 1px solid var(--line); background: #fff; color: var(--green); border-radius: 8px; padding: 4px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+#btn-refresh:disabled { color: var(--muted); cursor: default; }
+#btn-reload { border: 0; background: none; color: var(--green); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 0; }
+.primary { width: 100%; border: 0; border-radius: 10px; background: var(--green); color: #fff; font: inherit; font-weight: 600; padding: 10px; cursor: pointer; margin: 4px 0 8px; }
+.actions { display: flex; gap: 8px; margin: 0 0 8px; }
+.actions button { flex: 1; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--green); font: inherit; font-size: 13px; padding: 6px; cursor: pointer; }
+.field { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.field input { display: block; width: 100%; margin-top: 2px; padding: 9px 10px; font-size: 16px; border: 1px solid var(--line); border-radius: 10px; color: var(--fg); }
+.journey { grid-template-columns: 52px 1fr auto; }
+.legs { padding: 2px 0 8px 12px; border-left: 3px solid var(--green); margin: 4px 0 8px 6px; }
+.leg { font-size: 13px; margin: 0 0 8px; }
+.leg small { display: block; color: var(--muted); }
+.leg b { font-weight: 500; }
+.leg.walk { color: var(--muted); }
 .next { background: #eef6f1; }
 #btn-3d {
   position: fixed; right: 12px; bottom: 34px; z-index: 2; width: 44px; height: 44px; border: 0; border-radius: 50%;

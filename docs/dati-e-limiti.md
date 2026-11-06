@@ -19,7 +19,7 @@ Trentino Trasporti non pubblica un GTFS-RT ufficiale. L'API dell'app Muoversi in
 - Gratis solo per uso non commerciale di privati, enti non profit e ONG. Gli usi commerciali e le altre organizzazioni richiedono il consenso scritto di BusOne (info@busone.app).
 - L'attribuzione è obbligatoria e compare già sulla mappa: BusOne, fonte originale e OpenStreetMap.
 - Il servizio può essere negato o interrotto in qualsiasi momento.
-- Le richieste devono includere `X-BusOne-Client` e `X-BusOne-Use`. L'app invia `tnttmonitor-poc` e `personal`, che oggi non generano avvisi. La documentazione però chiede anche un contatto, da aggiungere prima di una pubblicazione.
+- Le richieste devono includere `X-BusOne-Client` e `X-BusOne-Use`. L'app invia il nome e l'indirizzo del repo, e `personal`, che oggi non generano avvisi. La documentazione però chiede anche un contatto, da aggiungere prima di una pubblicazione.
 - Restano valide le licenze delle fonti. Per Trentino Trasporti è CC BY, indicata come 2.5 dall'operatore e 4.0 dal portale provinciale.
 
 ## Verifiche fatte (6 novembre 2026, ore 8:45, servizio attivo)
@@ -47,10 +47,32 @@ La verifica copre un solo momento della giornata. I casi rari vanno riletti col 
 - Ogni orario riporta `uncertainty: 600`, cioè 10 minuti, su tutti i 4.679 valori del campione.
 - Il feed non segnala un arrivo in fermata: non ci sono eventi di passaggio. Per le statistiche servirà capire come ricavare quelli osservati.
 
+## Confronto con le tabelle orarie di Trentino Trasporti (6 novembre 2026)
+
+Tabelle lette dal sito ufficiale e confrontate con `net.json`, su due fermate per colonna, per sei tipi di giorno (scolastico, sabato scolastico, domenica, festivo infrasettimanale, feriale e sabato non scolastici).
+
+| Controllo | Esito |
+|---|---|
+| B401 andata, bus ordinari | 54 colonne su 54 corrette |
+| B401 andata, bus sostitutivi TT | 6 su 10: mancano TT919, TT923, TT925, TT933 |
+| B401 andata, treni Trenitalia | 18 su 18 fino al 12 dicembre, poi assenti |
+| B401 andata, treni Trentino Trasporti | 0 su 8: mancano 16915, 16269, 16931, 16935, 16265, 16945, 16947 |
+| B101 andata, pagina 1 di 2 | 13 su 13 |
+| Urbano 3, festivo andata, pagina 1 di 3 | 8 partenze su 8 |
+| Trento-Malé, partenze da Trento | 24 su 24 feriali, 8 su 8 festive |
+
+**Treni regionali dopo il 12 dicembre.** Nel GTFS Trenitalia attuale i regionali finiscono il 12 dicembre 2026, data del cambio orario: dal 13 restano solo 14 Frecce e Intercity al giorno. Anche il sito pubblica l'orario della Valsugana solo fino al 12 dicembre.
+
+L'app lo segnala negli ultimi 14 giorni e nel pianificatore quando si sceglie una data scoperta.
+
+**Treni e bus TT in Valsugana.** Non sono in nessuno dei due GTFS usati. Compaiono nell'orario "Linea Trento-Bassano" sul sito di Trentino Trasporti. Dal 6 novembre 23 corse, tra treni e bus, sono in `data/extra/valsugana.json`, valide fino al 12 dicembre e senza dati live. Il build trova anche le corse doppie: 6 bus dell'orario Valsugana risultavano già nella B450 e non sono stati aggiunti. La tabella sopra riporta l'esito prima di questa aggiunta.
+
+Non sono state confrontate la B401 ritorno, le altre linee, tutte le fermate intermedie.
+
 ## Non ancora verificato
 
 - **Copertura live nell'arco della giornata:** al momento della prova circa un terzo dei mezzi era senza dati live, compresi molti bus della Valsugana.
-- **Traffico:** ogni 30 secondi si scaricano circa 60 KB compressi per i bus e 130 KB per i treni, cioè circa 23 MB l'ora (7 bus, 16 treni). Il feed treni è nazionale e solo una trentina di corse su circa 750 riguarda il Trentino. GTFS-RT non prevede filtri lato server e BusOne ignora i parametri provati (`route_id`, `trip_id`, `stop_id`, `bbox`, `agency`, `limit`, `region`); anche il protobuf pesa quasi uguale (121 KB contro 128 KB).
+- **Traffico:** ogni 5 minuti si scaricano circa 60 KB compressi per i bus e 130 KB per i treni, cioè circa 2,3 MB l'ora, solo mentre la pagina è visibile. Il feed treni è nazionale e solo una trentina di corse su circa 750 riguarda il Trentino. GTFS-RT non prevede filtri lato server e BusOne ignora i parametri provati (`route_id`, `trip_id`, `stop_id`, `bbox`, `agency`, `limit`, `region`); anche il protobuf pesa quasi uguale (121 KB contro 128 KB).
 
 ## Limiti noti
 

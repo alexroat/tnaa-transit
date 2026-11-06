@@ -95,3 +95,23 @@ test('dati reali: feed Trenitalia salvato combacia con net.json', { skip: !proce
   const ids = new Set(net.trips.map((t) => t.id));
   console.log('corse nel feed', rt.size, 'presenti in net', [...rt.keys()].filter((k) => ids.has(k)).length);
 });
+
+test('pianificatore: rete minima con un cambio e un tratto a piedi', async () => {
+  const { Planner } = await import('../app/js/planner.js');
+  const raw = {
+    stops: [['a', 'A', 46, 11, 0], ['b', 'B', 46, 11.1, 0], ['c', 'C', 46.001, 11.1, 0], ['d', 'D', 46, 11.2, 0]],
+    routes: [['r1', '1', 'Uno', '', 0, 'tt'], ['r2', '2', 'Due', '', 0, 'tt']],
+    services: [[127, '20260101', '20261231', [], []]],
+    shapes: [[11, 46, 11.2, 46]],
+    patterns: [[0, [0, 1], [0, 1], [1, 2]], [0, [2, 3], [0, 1], [1, 2]]],
+    offsets: [[0, 0, 600, 600]],
+    trips: [['t1', 0, 0, 'B', 0, 28800, 0, ''], ['t2', 1, 0, 'D', 1, 29400, 0, ''], ['t3', 1, 0, 'D', 1, 29700, 0, '']],
+    generatedAt: '',
+  };
+  const net = new Network(raw);
+  const out = new Planner(net).plan(0, 3, '20261106', 28000);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].transfers, 1);
+  assert.equal(out[0].arr, 30300); // la t2 e troppo vicina: 120 s di cambio piu 100 m a piedi
+  assert.equal(out[0].legs.filter((l) => l.walk).length, 1);
+});

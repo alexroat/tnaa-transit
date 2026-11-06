@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>TN Monitor · bus e treni del Trentino</title>
+  <title>TNAA Transit · trasporti pubblici</title>
   <meta name="theme-color" content="#1f5f3f">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
@@ -15,8 +15,9 @@
   <div id="map"></div>
   <aside id="panel">
     <header>
-      <h1>TN Monitor</h1>
+      <h1>TNAA Transit</h1>
       <p id="status">Caricamento…</p>
+      <button id="btn-refresh" title="Scarica subito ritardi e orari nuovi">Aggiorna</button>
     </header>
     <div id="banner" hidden></div>
     <input id="search" type="search" placeholder="Cerca fermata, stazione o linea" autocomplete="off">
@@ -35,6 +36,7 @@
         <span><i class="hollow"></i>Solo orario</span>
       </div>
       <p>Le posizioni sono <strong>stimate</strong>, non GPS. <a href="come-funziona.html">Come funziona</a></p>
+      <p>© Alessandro Roat · <a href="https://github.com/alexroat/tnaa-transit">CC BY-NC 4.0</a> · Progetto indipendente</p>
     </footer>
   </aside>
   <button id="btn-3d" title="Passa da 3D a 2D">2D</button>

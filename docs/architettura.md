@@ -13,7 +13,7 @@ flowchart LR
   G --> B[scripts/build_data.py]
   B --> N[app/data/net.json]
   N --> S[schedule.js: orari e posizioni]
-  R -->|ogni 30 s| P[rt.js: ritardi]
+  R -->|ogni 5 min| P[rt.js: ritardi]
   S --> M[main.js: mappa e pannello]
   P --> M
   W[sw.js] -. cache .- N
@@ -28,7 +28,9 @@ flowchart LR
 | `app/js/schedule.js` | Calendario, corse attive, posizione lungo il percorso. Logica pura |
 | `app/js/rt.js` | Lettura dei TripUpdates e calcolo dei ritardi. Logica pura |
 | `app/js/main.js` | Mappa MapLibre, pannello, aggiornamenti periodici |
+| `app/js/planner.js` | Pianificatore di viaggio |
 | `app/sw.js` | Cache per l'uso offline |
+| `data/extra/` | Corse trascritte a mano |
 | `app/come-funziona.html` | Spiegazione pubblica di stime e limiti |
 | `tests/logic.test.mjs` | Test della logica pura |
 | `scripts/check_live.mjs` | Verifica sui feed reali |
@@ -66,22 +68,37 @@ Le corse dopo mezzanotte sono gestite controllando anche il giorno di servizio p
 | Mappa online con OpenFreeMap e DEM AWS | Nessuna chiave; un pacchetto offline completo arriverà solo se serve |
 | Riuso di MapLibre e dello stile del progetto Valsugana | Stesso aspetto e stessa versione già collaudata |
 
+## Pianificatore
+
+`planner.js` usa il Connection Scan su tutte le corse del giorno, con un giro per ogni mezzo preso, fino a 5. Così trova sia l'arrivo più rapido sia le soluzioni con meno cambi. Ripete la ricerca da partenze successive e scarta i viaggi peggiori di un altro per partenza, arrivo e cambi. Gira nel browser in meno di 100 ms su un Mac e funziona senza rete.
+
+Il calcolo usa gli orari programmati, cambio minimo 2 minuti e fino a 300 metri a piedi in linea d'aria. Non considera le corse iniziate il giorno prima. I ritardi attuali compaiono accanto a ogni tratta ma non cambiano il risultato.
+
+## Corse manuali
+
+Le corse che mancano dai GTFS stanno in `data/extra/*.json` e il build le fonde in `net.json` con il feed `extra`, che non ha dati live. Scadono da sole a `validTo`. La procedura è nella skill `aggiorna-dati`.
+
 ## PWA e offline
 
 | Risorsa | Strategia |
 |---|---|
-| App e `net.json` | Prima la rete, con ripiego sulla cache dopo 4 secondi |
+| App e `version.json` | Prima la rete, con ripiego sulla cache dopo 4 secondi |
+| `net.json` | Dalla copia locale; si riscarica solo se `version.json` indica un'altra versione |
 | Tile di mappa e terreno | Salvati quando vengono visti, massimo 4.000 |
-| Feed BusOne | Mai in cache: un dato live vecchio sarebbe fuorviante |
+| Feed BusOne | Non passano dal service worker. La pagina salva l'ultima risposta con la sua data in `tn-live` |
 
-Offline l'app mostra un avviso con la data degli orari, e tutti i mezzi passano a "solo orario". Se lo stile della mappa non è mai stato salvato, parte su uno sfondo neutro e il resto continua a funzionare.
+All'avvio l'app usa subito i dati salvati, poi controlla `version.json`. Se gli orari sono cambiati li scarica in background e propone di usarli. La versione è un hash del contenuto, quindi non cambia se il file è stato solo rigenerato.
+
+I ritardi si aggiornano ogni 5 minuti, si fermano quando la pagina non è visibile e si possono forzare con il pulsante o aprendo una fermata, al massimo ogni 30 secondi. Senza rete i ritardi salvati valgono per 15 minuti; poi tutti i mezzi passano a "solo orario" e l'avviso riporta la data degli orari. Se lo stile della mappa non è mai stato salvato, parte su uno sfondo neutro e il resto continua a funzionare.
 
 Per pubblicare una nuova versione dell'app bisogna incrementare `VERSION` in `sw.js`, che rimuove le vecchie cache.
 
+## Pubblicazione
+
+`.github/workflows/pages.yml` gira a ogni push su `main` e ogni notte. Scarica i GTFS, genera `net.json` e `version.json`, che non sono nel repo, e pubblica `app/` su GitHub Pages. Se il build fallisce resta online l'ultima versione buona. La versione degli orari dipende solo dal contenuto, quindi l'app riscarica gli orari solo quando cambiano davvero.
+
 ## Prossimi passi
 
-1. Pubblicare su GitHub Pages con un'azione giornaliera che esegue `npm run data`.
-2. Raccogliere i ritardi su un piccolo servizio esterno per le statistiche: è l'unico pezzo che richiede un backend.
-3. Aggiungere un pianificatore di viaggio, in un Web Worker con un algoritmo come RAPTOR.
-4. Aggiungere la provincia di Bolzano tramite il GTFS-RT ufficiale di Open Data Hub.
-5. Valutare un pacchetto offline completo con PMTiles, come nel progetto Valsugana.
+1. Raccogliere i ritardi su un piccolo servizio esterno per le statistiche: è l'unico pezzo che richiede un backend.
+2. Aggiungere la provincia di Bolzano tramite il GTFS-RT ufficiale di Open Data Hub.
+3. Valutare un pacchetto offline completo con PMTiles, come nel progetto Valsugana.

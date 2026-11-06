@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Come funziona · TN Monitor</title>
+  <title>Come funziona · TNAA Transit</title>
   <meta name="theme-color" content="#1f5f3f">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
@@ -19,7 +19,10 @@
   <h2>Come viene calcolata la posizione</h2>
   <p>L'app combina tre dati: l'orario della corsa, il percorso sulla mappa e il ritardo attuale.</p>
   <p class="note">Un bus parte da A alle 8:10, arriva a B alle 8:20 e ha 4 minuti di ritardo. Alle 8:19 si comporta come un bus in orario alle 8:15, quindi viene disegnato a metà strada fra A e B.</p>
-  <p>La posizione si ricalcola ogni secondo e i ritardi vengono aggiornati ogni 30 secondi.</p>
+  <p>La posizione si ricalcola ogni secondo e i ritardi vengono aggiornati ogni 5 minuti, oppure quando premi Aggiorna. Un ritardo più vecchio di 15 minuti non viene più usato e il mezzo torna a "solo orario".</p>
+
+  <h2>Senza rete</h2>
+  <p>Orari, ricerca e pianificatore funzionano anche senza campo, con gli orari salvati sul dispositivo. Il pianificatore usa sempre gli orari programmati. L'app avvisa quando gli orari disponibili stanno per finire.</p>
 
   <h2>Quanto ci si può fidare</h2>
   <table>
@@ -49,7 +52,16 @@
 
   <h2>Da dove vengono i dati</h2>
   <p>Orari e ritardi arrivano da <a href="https://busone.app">BusOne</a>, che elabora i dati di Trentino Trasporti e Trenitalia. La mappa usa OpenStreetMap tramite OpenFreeMap e il modello del terreno Mapzen.</p>
-  <p>TN Monitor è un progetto indipendente: non è un servizio di Trentino Trasporti o di Trenitalia. Per informazioni ufficiali consulta i canali degli operatori.</p>
+  <p>TNAA Transit è un progetto indipendente: non è un servizio di Trentino Trasporti, di Trenitalia o di BusOne, che non lo sostengono né lo controllano. I nomi degli operatori servono solo a indicare la fonte dei dati e appartengono ai rispettivi titolari. Per informazioni ufficiali consulta i canali degli operatori.</p>
+
+  <h2>Fonti e licenze</h2>
+  <ul>
+    <li><strong>Orari e ritardi:</strong> <a href="https://busone.app">BusOne</a> e fonte originale, cioè Trentino Trasporti S.p.A. e Trenitalia.</li>
+    <li><strong>Orari Trentino Trasporti:</strong> <a href="https://www.trentinotrasporti.it/it/opendata-it">open data di Trentino Trasporti S.p.A.</a>, <a href="https://creativecommons.org/licenses/by/4.0/deed.it">CC BY 4.0</a>. I dati sono stati filtrati e convertiti in un formato compatto.</li>
+    <li><strong>Mappa:</strong> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>, OpenMapTiles, <a href="https://openfreemap.org">OpenFreeMap</a>. Terreno: Mapzen, AWS Terrain Tiles.</li>
+  </ul>
+  <h2>Autore e licenza</h2>
+  <p>© 2026 Alessandro Roat. Il progetto è libero per usi non commerciali, con obbligo di citare l'autore: <a href="https://creativecommons.org/licenses/by-nc/4.0/deed.it">CC BY-NC 4.0</a>. <a href="https://github.com/alexroat/tnaa-transit">Codice sorgente e condizioni complete</a>.</p>
 </main>
 </body>
 </html>

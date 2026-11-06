@@ -1,7 +1,7 @@
 {
-  "name": "TN Monitor · bus e treni del Trentino",
-  "short_name": "TN Monitor",
-  "description": "Mappa 3D di bus e treni del Trentino, con orari e ritardi.",
+  "name": "TNAA Transit · trasporti pubblici",
+  "short_name": "TNAA Transit",
+  "description": "Mappa 3D dei trasporti pubblici in Trentino, con orari, ritardi e viaggi.",
   "lang": "it",
   "start_url": "./",
   "scope": "./",

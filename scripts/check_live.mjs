@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { Network } from '../app/js/schedule.js';
 import { currentDelay, lookup, parseTripUpdates, stopDelays } from '../app/js/rt.js';
 
-const headers = { 'X-BusOne-Client': 'tnttmonitor-poc', 'X-BusOne-Use': 'personal' };
+const headers = { 'X-BusOne-Client': 'tnaa-transit (https://github.com/alexroat/tnaa-transit)', 'X-BusOne-Use': 'personal' };
 const net = new Network(JSON.parse(readFileSync(new URL('../app/data/net.json', import.meta.url))));
 const feeds = { tt: 'trentino', trn: 'trenitalia' };
 const nowMs = Date.now();

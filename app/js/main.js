@@ -1,13 +1,18 @@
 import * as maplibregl from '../vendor/maplibre/maplibre-gl.mjs';
 import { Network, addDays, romeParts } from './schedule.js';
 import { currentDelay, lookup, parseTripUpdates, stopDelays } from './rt.js';
+import { Planner } from './planner.js';
 
 const FEEDS = {
   tt: 'https://proxy.busone.app/trentino/gtfs-rt/trip-updates.json',
   trn: 'https://proxy.busone.app/trenitalia/gtfs-rt/trip-updates.json',
 };
-const BUSONE_HEADERS = { 'X-BusOne-Client': 'tnttmonitor-poc', 'X-BusOne-Use': 'personal' };
-const POLL_MS = 30000;
+const BUSONE_HEADERS = { 'X-BusOne-Client': 'tnaa-transit (https://github.com/alexroat/tnaa-transit)', 'X-BusOne-Use': 'personal' };
+const POLL_MS = 5 * 60000; // i dati non sono in tempo reale: 5 minuti bastano e pesano poco sulla fonte
+const MIN_REFRESH_MS = 30000; // limite per aggiornamento manuale e apertura di una fermata
+const MAX_LIVE_AGE_MS = 15 * 60000; // oltre, un ritardo vale meno dell'orario
+const SOON_DAYS = 14;
+const LIVE_CACHE = 'tnaa-live';
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const FALLBACK_STYLE = { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e9eee9' } }] };
 const HOME = { center: [11.17, 46.08], zoom: 8.9, pitch: 50, bearing: -8 };
@@ -20,13 +25,19 @@ const params = new URLSearchParams(location.search);
 const now = () => Date.now();
 
 let net;
-const rt = { tt: new Map(), trn: new Map() };
-const feedState = { tt: { ok: false, count: 0 }, trn: { ok: false, count: 0 } };
+const rt = { tt: new Map(), trn: new Map(), extra: new Map() };
+const feedState = { tt: { ok: false, count: 0, at: 0 }, trn: { ok: false, count: 0, at: 0 } };
 let active = [];
 let view = { kind: 'home' };
 let vehicles = [];
 let is3D = true;
 let dataDate = '';
+let netVersion = '';
+let validity = [];
+let updateReady = false;
+let lastPoll = 0;
+let planner;
+const plan = { from: null, to: null, when: '', results: null, open: -1 };
 
 const fmtTime = (s) => {
   const v = ((Math.round(s / 60) % 1440) + 1440) % 1440;
@@ -39,6 +50,8 @@ const delayText = (d) => {
   return m === 0 ? 'in orario' : m > 0 ? `+${m} min` : `${m} min`;
 };
 const routeOf = (t) => net.routes[t.route];
+const liveAge = (feed) => (feedState[feed]?.at ? now() - feedState[feed].at : Infinity);
+const fmtDay = (ymd) => `${ymd.slice(6, 8)}/${ymd.slice(4, 6)}/${ymd.slice(0, 4)}`;
 const label = (t) => {
   const r = routeOf(t);
   return r.rail && t.short ? `${r.short} ${t.short}` : r.short;
@@ -46,7 +59,7 @@ const label = (t) => {
 
 function instance(c) {
   const feed = routeOf(c.trip).feed;
-  const found = lookup(rt[feed], c.trip.id, c.day);
+  const found = liveAge(feed) <= MAX_LIVE_AGE_MS ? lookup(rt[feed], c.trip.id, c.day) : undefined;
   const rec = found && { ...found, midnight: c.midnight };
   const seqs = net.patterns[c.trip.pattern].seqs;
   const at = (i) => net.times(c.trip, i);
@@ -97,34 +110,89 @@ function renderStatus() {
   const live = vehicles.filter((v) => v.delay !== undefined).length;
   const rail = vehicles.filter((v) => routeOf(v.trip).rail).length;
   const { sec } = romeParts(now());
+  const age = Math.min(liveAge('tt'), liveAge('trn'));
   const parts = [`${fmtTime(sec)}`, `${vehicles.length} in viaggio (${rail} treni)`, `${live} con dati live`];
+  if (age <= MAX_LIVE_AGE_MS) parts.push(age < 60000 ? 'ritardi appena aggiornati' : `ritardi di ${Math.floor(age / 60000)} min fa`);
   $('#status').textContent = parts.join(' · ');
   renderBanner();
 }
 
+function validityNotes() {
+  const today = romeParts(now()).ymd;
+  const soon = addDays(today, SOON_DAYS);
+  const byDate = new Map();
+  for (const v of validity) if (v.until <= soon) byDate.set(v.until, [...(byDate.get(v.until) || []), v.group]);
+  return [...byDate].map(([until, groups]) => `${groups.join(', ')}: orari noti solo fino al ${fmtDay(until)}`);
+}
+
 function renderBanner() {
-  const notes = [];
-  if (!feedState.tt.ok && !feedState.trn.ok) notes.push(`Offline: solo orari programmati, aggiornati al ${dataDate}`);
-  else if ((!feedState.tt.ok || !feedState.trn.ok)) notes.push(`Dati live ${feedState.tt.ok ? 'dei treni' : 'dei bus'} non disponibili`);
+  const notes = validityNotes().map(esc);
+  const down = ['tt', 'trn'].filter((k) => !feedState[k].ok);
+  const usable = Math.min(liveAge('tt'), liveAge('trn')) <= MAX_LIVE_AGE_MS;
+  if (down.length === 2) notes.unshift(usable ? 'Senza rete: ritardi salvati' : `Senza rete: orari programmati del ${dataDate}`);
+  else if (down.length) notes.unshift(`Dati live ${down[0] === 'trn' ? 'dei treni' : 'dei bus'} non disponibili`);
+  if (updateReady) notes.push('Orari aggiornati scaricati. <button id="btn-reload">Usa i nuovi orari</button>');
   const b = $('#banner');
   b.hidden = !notes.length;
-  b.textContent = notes.join(' · ');
+  b.innerHTML = notes.join(' · ');
+}
+
+async function saveLive(key, text) {
+  if (!('caches' in self)) return;
+  const c = await caches.open(LIVE_CACHE);
+  await c.put(`/live/${key}`, new Response(text, { headers: { 'x-saved-at': String(now()) } }));
+}
+
+async function loadSavedLive() {
+  if (!('caches' in self)) return;
+  const c = await caches.open(LIVE_CACHE);
+  await Promise.all(Object.keys(FEEDS).map(async (k) => {
+    const res = await c.match(`/live/${k}`);
+    if (!res) return;
+    const at = +res.headers.get('x-saved-at');
+    if (now() - at > MAX_LIVE_AGE_MS) return;
+    rt[k] = parseTripUpdates(await res.json());
+    feedState[k] = { ok: false, count: rt[k].size, at };
+  }));
 }
 
 async function poll() {
+  lastPoll = now();
   await Promise.all(Object.entries(FEEDS).map(async ([k, url]) => {
     try {
       const res = await fetch(url, { headers: BUSONE_HEADERS });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      rt[k] = parseTripUpdates(await res.json());
-      feedState[k] = { ok: true, count: rt[k].size };
+      const text = await res.text();
+      rt[k] = parseTripUpdates(JSON.parse(text));
+      feedState[k] = { ok: true, count: rt[k].size, at: now() };
+      saveLive(k, text).catch((e) => console.warn('salvataggio', k, e));
     } catch (e) {
       console.warn('feed', k, e);
-      feedState[k] = { ok: false, count: 0 };
+      feedState[k] = { ...feedState[k], ok: false };
     }
   }));
   pushVehicles();
   renderView();
+}
+
+/** Controlla il file piccolo; scarica gli orari solo se la versione e cambiata. */
+async function checkVersion() {
+  try {
+    const res = await fetch('data/version.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const v = await res.json();
+    validity = v.validity || validity;
+    if (v.version === netVersion || updateReady) return;
+    const fresh = await fetch('data/net.json', { cache: 'reload' });
+    if (fresh.ok) updateReady = true;
+    renderBanner();
+  } catch (e) {
+    console.warn('versione', e);
+  }
+}
+
+function refreshIfStale(minAge = MIN_REFRESH_MS) {
+  if (now() - lastPoll >= minAge && !document.hidden) poll();
 }
 
 // ---------- Pannello ----------
@@ -133,6 +201,7 @@ function tag(r) {
 }
 
 function renderView() {
+  if (view.kind === 'plan') return; // la vista contiene campi in uso: si ridisegna solo su richiesta
   if (view.kind === 'stop') renderStop(view.stop);
   else if (view.kind === 'trip') renderTrip();
   else if (view.kind === 'search') renderSearch();
@@ -143,7 +212,7 @@ function renderView() {
 function renderHome() {
   const sorted = vehicles.filter((v) => v.delay !== undefined).sort((a, b) => b.delay - a.delay).slice(0, 25);
   const rows = sorted.map((v) => tripRow(v, fmtTime(net.times(v.trip, v.nextPos).arr + (v.delay ?? 0)), v.delay)).join('');
-  $('#content').innerHTML = `<h2>Ritardi maggiori</h2>${rows || '<p class="empty">Nessun ritardo disponibile al momento. Di notte il servizio è fermo.</p>'}`;
+  $('#content').innerHTML = `<button class="primary" data-plan>Pianifica un viaggio</button><h2>Ritardi maggiori</h2>${rows || '<p class="empty">Nessun ritardo disponibile al momento. Di notte il servizio è fermo.</p>'}`;
 }
 
 function tripRow(v, time, delay, extra = '') {
@@ -186,7 +255,8 @@ function renderStop(i) {
     return tripRow(v, gone ? 'Soppressa' : time, v.d, gone ? 'gone' : '');
   }).join('');
   $('#content').innerHTML = `<button class="back" data-home>← Indietro</button><h2>${esc(s.name)}</h2>
-    <p class="sub">Prossime partenze, entro 2 ore</p>${rows || '<p class="empty">Nessuna partenza nelle prossime 2 ore.</p>'}`;
+    <p class="sub">Prossime partenze, entro 2 ore</p>
+    <p class="actions"><button data-plan-from="${i}">Parti da qui</button><button data-plan-to="${i}">Arriva qui</button></p>${rows || '<p class="empty">Nessuna partenza nelle prossime 2 ore.</p>'}`;
 }
 
 function renderTrip() {
@@ -211,7 +281,8 @@ function renderTrip() {
   const state = x.rec?.canceled ? 'Corsa soppressa' : delayText(x.delay);
   $('#content').innerHTML = `<button class="back" data-home>← Indietro</button>
     <h2>${tag(r)} ${esc(trip.headsign || r.long)}</h2>
-    <p class="sub">${esc(r.rail && trip.short ? `Treno ${trip.short} · ` : '')}<span class="d ${severity(x.delay)}">${esc(state)}</span></p>${rows}`;
+    <p class="sub">${esc(r.rail && trip.short ? `Treno ${trip.short} · ` : '')}<span class="d ${severity(x.delay)}">${esc(state)}</span></p>
+    ${r.feed === 'extra' ? '<p class="sub">Corsa aggiunta dall\'orario pubblicato da Trentino Trasporti: nessun dato live.</p>' : ''}${rows}`;
 }
 
 function makeCandidate(trip, day) {
@@ -220,11 +291,16 @@ function makeCandidate(trip, day) {
   return { trip, day, midnight };
 }
 
+function stopMatches(text, limit) {
+  const q = text.toLowerCase();
+  const rank = (s) => (s.name.toLowerCase() === q ? 0 : s.name.toLowerCase().startsWith(q) ? 1 : 2);
+  return net.stops.filter((s) => s.name.toLowerCase().includes(q))
+    .sort((a, b) => rank(a) - rank(b) || b.rail - a.rail || a.name.localeCompare(b.name)).slice(0, limit);
+}
+
 function renderSearch() {
   const q = view.q.toLowerCase();
-  const rank = (s) => (s.name.toLowerCase() === q ? 0 : s.name.toLowerCase().startsWith(q) ? 1 : 2);
-  const stops = net.stops.filter((s) => s.name.toLowerCase().includes(q))
-    .sort((a, b) => rank(a) - rank(b) || b.rail - a.rail || a.name.localeCompare(b.name)).slice(0, 25);
+  const stops = stopMatches(q, 25);
   const seen = new Set();
   const routes = net.routes.filter((r) => {
     const key = `${r.short}|${r.long}`;
@@ -245,9 +321,82 @@ function renderRoute() {
     ${same.map((v) => tripRow(v, fmtTime(net.times(v.trip, v.nextPos).arr + (v.delay ?? 0)), v.delay)).join('') || '<p class="empty">Nessun mezzo in viaggio su questa linea.</p>'}`;
 }
 
+// ---------- Pianificatore ----------
+function localNow() {
+  const { ymd, sec } = romeParts(now());
+  return `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}T${fmtTime(sec)}`;
+}
+
+function renderPlan() {
+  plan.when ||= localNow();
+  $('#content').innerHTML = `<button class="back" data-home>← Indietro</button><h2>Pianifica un viaggio</h2>
+    <label class="field">Da<input id="p-from" autocomplete="off" placeholder="Fermata o stazione" value="${esc(plan.from === null ? '' : net.stops[plan.from].name)}"></label>
+    <div id="p-from-s"></div>
+    <label class="field">A<input id="p-to" autocomplete="off" placeholder="Fermata o stazione" value="${esc(plan.to === null ? '' : net.stops[plan.to].name)}"></label>
+    <div id="p-to-s"></div>
+    <label class="field">Partenza<input id="p-when" type="datetime-local" value="${plan.when}"></label>
+    <button class="primary" id="p-go">Cerca</button><div id="p-out"></div>`;
+  renderPlanResults();
+}
+
+function planLeg(l, day) {
+  if (l.walk) return `<p class="leg walk">A piedi fino a ${esc(net.stops[l.to].name)}</p>`;
+  const t = net.trips[l.trip];
+  const r = routeOf(t);
+  const x = day === romeParts(now()).ymd ? instance(makeCandidate(t, day)) : null;
+  const live = x?.rec?.canceled ? '<span class="d late">soppressa</span>' : x && x.delay !== undefined ? `<span class="d ${severity(x.delay)}">${delayText(x.delay)}</span>` : '';
+  return `<div class="leg">${tag(r)} <b>${esc(t.headsign || r.long)}</b>${r.rail && t.short ? ` <small>${esc(t.short)}</small>` : ''} ${live}
+    <small>${fmtTime(l.dep)} ${esc(net.stops[l.from].name)} → ${fmtTime(l.arr)} ${esc(net.stops[l.to].name)}</small></div>`;
+}
+
+function renderPlanResults() {
+  const out = $('#p-out');
+  if (!out || !plan.results) return;
+  const day = plan.day;
+  const late = validity.filter((v) => v.until < day).map((v) => v.group);
+  const warn = late.length ? `<p class="sub">Per questa data mancano gli orari di: ${esc(late.join(', '))}.</p>` : '';
+  const rows = plan.results.map((j, i) => {
+    const min = Math.round((j.arr - j.dep) / 60);
+    const dur = min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`;
+    return `<button class="row journey" data-journey="${i}"><span class="time">${fmtTime(j.dep)}<br>${fmtTime(j.arr)}</span>
+      <span class="main"><b>${dur}</b><small>${j.transfers ? `${j.transfers} ${j.transfers === 1 ? 'cambio' : 'cambi'}` : 'Diretto'}</small></span><span></span></button>
+      ${plan.open === i ? `<div class="legs">${j.legs.map((l) => planLeg(l, day)).join('')}</div>` : ''}`;
+  }).join('');
+  out.innerHTML = `${warn}${rows || '<p class="empty">Nessun viaggio trovato entro la giornata.</p>'}
+    <p class="sub">Calcolato sugli orari programmati, anche senza rete. Cambio minimo 2 minuti, fino a 300 metri a piedi.</p>`;
+}
+
+function runPlan() {
+  plan.when = $('#p-when').value || localNow();
+  plan.open = -1;
+  if (plan.from === null || plan.to === null) {
+    $('#p-out').innerHTML = '<p class="empty">Scegli partenza e arrivo dall\'elenco.</p>';
+    return;
+  }
+  planner ||= new Planner(net);
+  const [date, time] = plan.when.split('T');
+  const [h, m] = time.split(':').map(Number);
+  plan.day = date.replaceAll('-', '');
+  plan.results = planner.plan(plan.from, plan.to, plan.day, h * 3600 + m * 60);
+  renderPlanResults();
+}
+
+function showJourney(i) {
+  plan.open = plan.open === i ? -1 : i;
+  const j = plan.results[i];
+  const features = plan.open < 0 ? [] : j.legs.filter((l) => !l.walk).map((l) => {
+    const t = net.trips[l.trip];
+    const pat = net.patterns[t.pattern];
+    return { type: 'Feature', geometry: { type: 'LineString', coordinates: net.shapes[pat.shape].coords }, properties: {} };
+  });
+  map.getSource('selected').setData({ type: 'FeatureCollection', features });
+  renderPlanResults();
+}
+
 function show(next) {
   view = next;
-  renderView();
+  if (next.kind === 'plan') renderPlan();
+  else renderView();
   $('#content').scrollTop = 0;
 }
 
@@ -263,6 +412,7 @@ function selectTrip(i, day) {
 
 function selectStop(i) {
   const s = net.stops[i];
+  refreshIfStale();
   map.getSource('selected').setData({ type: 'FeatureCollection', features: [] });
   map.easeTo({ center: [s.lon, s.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 700 });
   show({ kind: 'stop', stop: i });
@@ -271,13 +421,47 @@ function selectStop(i) {
 $('#content').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.trip) selectTrip(+b.dataset.trip, b.dataset.day);
+  if (b.id === 'p-go') runPlan();
+  else if (b.dataset.journey) showJourney(+b.dataset.journey);
+  else if (b.dataset.pick) {
+    plan[b.dataset.pick] = +b.dataset.stop;
+    plan.results = null;
+    show({ kind: 'plan' });
+  } else if ('plan' in b.dataset) show({ kind: 'plan' });
+  else if (b.dataset.planFrom) {
+    plan.from = +b.dataset.planFrom;
+    show({ kind: 'plan' });
+  } else if (b.dataset.planTo) {
+    plan.to = +b.dataset.planTo;
+    show({ kind: 'plan' });
+  } else if (b.dataset.trip) selectTrip(+b.dataset.trip, b.dataset.day);
   else if (b.dataset.stop) selectStop(+b.dataset.stop);
   else if (b.dataset.route) show({ kind: 'route', route: +b.dataset.route });
   else if ('home' in b.dataset) {
     map.getSource('selected').setData({ type: 'FeatureCollection', features: [] });
     show({ kind: 'home' });
   }
+});
+$('#content').addEventListener('input', (e) => {
+  const key = { 'p-from': 'from', 'p-to': 'to' }[e.target.id];
+  if (key) {
+    plan[key] = null;
+    const q = e.target.value.trim();
+    const list = q.length < 2 ? [] : stopMatches(q, 6);
+    $(`#${e.target.id}-s`).innerHTML = list.map((s) => `<button class="row pick" data-pick="${key}" data-stop="${s.i}"><span>${s.rail ? '🚉' : '🚏'}</span><span class="main"><b>${esc(s.name)}</b></span><span></span></button>`).join('');
+  }
+});
+$('#banner').addEventListener('click', (e) => {
+  if (e.target.id === 'btn-reload') location.reload();
+});
+$('#btn-refresh').addEventListener('click', async () => {
+  const b = $('#btn-refresh');
+  b.disabled = true;
+  await Promise.all([poll(), checkVersion()]);
+  setTimeout(() => { b.disabled = false; }, MIN_REFRESH_MS);
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && net) refreshIfStale(POLL_MS);
 });
 $('#search').addEventListener('input', (e) => {
   const q = e.target.value.trim();
@@ -299,7 +483,7 @@ const map = new maplibregl.Map({ container: 'map', style, maxPitch: 75, ...HOME,
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 map.addControl(new maplibregl.AttributionControl({
   compact: true,
-  customAttribution: 'Dati: <a href="https://busone.app">BusOne</a> · Trentino Trasporti · Trenitalia · DEM: Mapzen/AWS',
+  customAttribution: 'Dati: <a href="https://busone.app">BusOne</a> e fonte originale (Trentino Trasporti, CC BY 4.0; Trenitalia) · DEM: Mapzen/AWS',
 }));
 // Su schermi piccoli i crediti partono chiusi: restano apribili dal pulsante "i".
 map.once('load', () => {
@@ -399,13 +583,19 @@ async function start() {
   ]);
   net = new Network(raw);
   dataDate = new Date(raw.generatedAt).toLocaleDateString('it-IT');
+  netVersion = raw.version;
+  validity = raw.validity || [];
   window.__net = net;
   addLayers();
   refreshActive();
+  await loadSavedLive().catch((e) => console.warn('ritardi salvati', e));
+  pushVehicles();
+  renderView();
   await poll();
+  checkVersion();
   setInterval(pushVehicles, 1000);
   setInterval(refreshActive, 20000);
-  setInterval(poll, POLL_MS);
+  setInterval(() => refreshIfStale(POLL_MS), 30000);
   setInterval(() => { if (view.kind !== 'search') renderView(); }, 15000);
 }
 

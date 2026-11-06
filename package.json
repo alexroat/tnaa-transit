@@ -1,7 +1,9 @@
 {
-  "name": "tnttmonitor",
+  "name": "tnaa-transit",
   "version": "0.1.0",
   "private": true,
+  "license": "CC-BY-NC-4.0",
+  "author": "Alessandro Roat",
   "type": "module",
   "scripts": {
     "data": "python3 -I scripts/build_data.py",
